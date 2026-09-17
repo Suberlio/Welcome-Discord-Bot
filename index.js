@@ -4,33 +4,37 @@ require('dotenv').config();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMembers, // ضروري جداً لقراءة الأعضاء الجدد
     ],
 });
 
-client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}!`);
+client.once('clientReady', () => {
+    console.log(`Logged in as ${client.user.tag}! Bot is active on multiple servers.`);
 });
 
 client.on('guildMemberAdd', async (member) => {
-    // 1. البحث عن قناة ترحيب باسم "welcome" في السيرفر الذي انضم إليه العضو
-    let welcomeChannel = member.guild.channels.cache.find(ch => ch.name === 'welcome' && ch.isTextBased());
+    try {
+        // 1. البحث عن قناة باسم "welcome" في السيرفر الذي دخل إليه العضو
+        let welcomeChannel = member.guild.channels.cache.find(ch => ch.name === 'welcome' && ch.isTextBased());
 
-    // 2. إذا لم يجد قناة باسم "welcome"، يبحث عن قناة عامة باسم "general"
-    if (!welcomeChannel) {
-        welcomeChannel = member.guild.channels.cache.find(ch => ch.name === 'general' && ch.isTextBased());
+        // 2. إن لم يجدها، يبحث عن قناة "general"
+        if (!welcomeChannel) {
+            welcomeChannel = member.guild.channels.cache.find(ch => ch.name === 'general' && ch.isTextBased());
+        }
+
+        // 3. إن لم يجد الاثنتين، يأخذ أول قناة نصية يملك البوت صلاحية الكتابة فيها
+        if (!welcomeChannel) {
+            welcomeChannel = member.guild.channels.cache.find(ch => ch.isTextBased() && ch.permissionsFor(member.guild.members.me)?.has('SendMessages'));
+        }
+
+        // إذا لمط تتوفر أي قناة مناسبة، يتوقف الكود
+        if (!welcomeChannel) return;
+
+        // إرسال رسالة الترحيب مع عدد الأعضاء الخاص بهذا السيرفر فقط
+        await welcomeChannel.send(`أهلاً بك في السيرفر، ${member}! نحن سعداء بانضمامك 🎉\nأنت العضو رقم **${member.guild.memberCount}** هنا.`);
+    } catch (error) {
+        console.error('Error sending welcome message:', error);
     }
-
-    // 3. إذا لم يجد الاثنتين، يأخذ أول قناة نصية متاحة في السيرفر
-    if (!welcomeChannel) {
-        welcomeChannel = member.guild.channels.cache.find(ch => ch.isTextBased());
-    }
-
-    // إذا لم توجد أي قناة نصية، يتوقف الكود
-    if (!welcomeChannel) return;
-
-    // إرسال رسالة الترحيب مع عدد الأعضاء في هذا السيرفر بالذات
-    await welcomeChannel.send(`أهلاً بك في السيرفر، ${member}! نحن سعداء بانضمامك 🎉\nأنت العضو رقم **${member.guild.memberCount}** هنا.`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
